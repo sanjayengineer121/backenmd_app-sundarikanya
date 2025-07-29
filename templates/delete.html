@@ -1,0 +1,217 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <title>Delete Videos</title>
+  <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/css/bootstrap.min.css" rel="stylesheet">
+  <script src="https://cdn.jsdelivr.net/npm/sweetalert2@11"></script>
+      <style>
+  .navbar-nav .nav-link {
+    color: white !important;
+  }
+</style>
+</head>
+<body class="bg-light p-4">
+
+      <!-- ✅ __define-ocg__: Beautiful Navbar with UI Tabs -->
+<nav class="navbar navbar-expand-lg navbar-dark bg-primary">
+  <div class="container-fluid">
+    <a class="navbar-brand" href="/home">Home Page</a>
+
+    <button class="navbar-toggler" type="button" data-bs-toggle="collapse" data-bs-target="#navbarNavDropdown" 
+            aria-controls="navbarNavDropdown" aria-expanded="false" aria-label="Toggle navigation">
+      <span class="navbar-toggler-icon"></span>
+    </button>
+
+    <div class="collapse navbar-collapse" id="navbarNavDropdown">
+      <ul class="navbar-nav ms-auto">
+        <li class="nav-item">
+          <a class="nav-link" href="/login">Login</a>
+        </li>
+        <li class="nav-item">
+          <a class="nav-link" href="/home">Home</a>
+        </li>
+        <li class="nav-item">
+          <a class="nav-link" href="/update">Update</a>
+        </li>
+        <li class="nav-item">
+          <a class="nav-link" href="/delete">Delete</a>
+        </li>
+        
+      </ul>
+
+      <!-- ✅ Dynamic JS buttons on the far right -->
+      <div class="ms-3 d-flex" id="navbar-buttons">
+        <!-- JavaScript-injected buttons appear here -->
+      </div>
+    </div>
+  </div>
+</nav>
+
+<div class="container">
+  <h3 class="mb-4">Search & Delete Videos</h3>
+
+  <div class="input-group mb-4">
+    <input type="text" id="searchInput" class="form-control" placeholder="Search by ID or keyword">
+    <button class="btn btn-primary" id="searchBtn">Search</button>
+  </div>
+
+  <div id="resultsContainer" class="row g-3"></div>
+</div>
+
+<script>
+const currentPage = window.location.pathname;
+const pagesThatRequireLogin = ["/home", "/update", "/upload"];  // NOT /login or /delete
+
+const sessionId = localStorage.getItem("session_id");
+const navbar = document.getElementById("navbar-buttons");
+
+if (!sessionId) {
+  navbar.innerHTML = `
+    <a href="/login" class="btn btn-light me-2">Login</a>
+    <a href="/" class="btn btn-outline-light">Sign Up</a>
+  `;
+
+  if (pagesThatRequireLogin.includes(currentPage)) {
+    Swal.fire({
+      icon: "warning",
+      title: "Not Logged In",
+      text: "Please login to access this page.",
+      confirmButtonText: "Go to Login"
+    }).then(() => {
+      window.location.href = "/login";
+    });
+  }
+} else {
+  fetch(`/api/session-info?session_id=${encodeURIComponent(sessionId)}`)
+    .then(res => res.json())
+    .then(data => {
+      if (data.status === "success") {
+        navbar.innerHTML = `
+          <span class="navbar-text text-white me-3">Welcome, <strong>${data.username}</strong></span>
+          <button class="btn btn-outline-light" onclick="logout()">Logout</button>
+        `;
+      } else {
+        throw new Error("Invalid session");
+      }
+    })
+    .catch(() => {
+      if (pagesThatRequireLogin.includes(currentPage)) {
+        Swal.fire({
+          icon: "error",
+          title: "Session Expired",
+          text: "Please login again."
+        }).then(() => {
+          localStorage.removeItem("session_id");
+          window.location.href = "/login";
+        });
+      }
+    });
+}
+
+function logout() {
+  localStorage.removeItem("session_id");
+  Swal.fire({
+    icon: "success",
+    title: "Logged Out",
+    text: "You have been logged out.",
+    timer: 1500,
+    showConfirmButton: false
+  }).then(() => {
+    window.location.href = "/login";
+  });
+}
+</script>
+
+
+<script>
+const session_id = localStorage.getItem("session_id");
+
+// Search Button Handler
+document.getElementById("searchBtn").addEventListener("click", async () => {
+    const query = document.getElementById("searchInput").value.trim();
+    const container = document.getElementById("resultsContainer");
+    container.innerHTML = "";
+
+    if (!query) {
+        Swal.fire("Error", "Please enter search term", "error");
+        return;
+    }
+
+    Swal.fire({title: "Searching...", didOpen: () => Swal.showLoading()});
+
+    try {
+        const res = await fetch(`/api/get/search?query=${encodeURIComponent(query)}`);
+        const result = await res.json();
+        Swal.close();
+
+        if (res.ok && result.status === "success" && result.total_results > 0) {
+            result.data.forEach(video => {
+                const col = document.createElement("div");
+                col.className = "col-md-4";
+
+                const videoUrl = Array.isArray(video.videourl) ? video.videourl[0] : video.videourl;
+
+                col.innerHTML = `
+                  <div class="card shadow-sm">
+                    <img src="${video.thumbnail}" class="card-img-top" style="height: 200px; object-fit: cover;">
+                    <div class="card-body">
+                      <h5 class="card-title">${video.title}</h5>
+                      <p class="card-text"><small>${video.description.substring(0, 80)}...</small></p>
+                      <button class="btn btn-danger w-100 deleteBtn" data-id="${video.id}">Delete</button>
+                    </div>
+                  </div>
+                `;
+
+                container.appendChild(col);
+            });
+
+            document.querySelectorAll(".deleteBtn").forEach(btn => {
+                btn.addEventListener("click", () => deleteVideo(btn.dataset.id));
+            });
+        } else {
+            container.innerHTML = `<p class="text-muted">No matching videos found.</p>`;
+        }
+    } catch (err) {
+        Swal.close();
+        console.error(err);
+        Swal.fire("Error", "Something went wrong", "error");
+    }
+});
+
+// Delete Video Function
+async function deleteVideo(id) {
+    const confirmed = await Swal.fire({
+        title: "Confirm Delete",
+        text: `Are you sure to delete ID: ${id}?`,
+        icon: "warning",
+        showCancelButton: true,
+        confirmButtonText: "Delete"
+    });
+
+    if (!confirmed.isConfirmed) return;
+
+    Swal.fire({title: "Deleting...", didOpen: () => Swal.showLoading()});
+
+    try {
+        const res = await fetch(`/api/get/delete?id=${encodeURIComponent(id)}&session_id=${encodeURIComponent(session_id)}`, {
+            method: "DELETE"
+        });
+        const result = await res.json();
+        Swal.close();
+
+        if (res.ok && result.status === "success") {
+            Swal.fire("Deleted!", result.message, "success");
+            document.getElementById("searchBtn").click();  // Refresh list
+        } else {
+            Swal.fire("Error", result.detail || "Delete failed", "error");
+        }
+    } catch (error) {
+        Swal.close();
+        Swal.fire("Error", "Network or server error", "error");
+    }
+}
+</script>
+
+</body>
+</html>

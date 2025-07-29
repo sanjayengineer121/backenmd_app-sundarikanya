@@ -1,0 +1,241 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <title>Update Video</title>
+  <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/css/bootstrap.min.css" rel="stylesheet">
+  <script src="https://cdn.jsdelivr.net/npm/sweetalert2@11"></script>
+    <style>
+  .navbar-nav .nav-link {
+    color: white !important;
+  }
+</style>
+</head>
+<body class="p-4 bg-light">
+
+  <!-- ✅ __define-ocg__: Beautiful Navbar with UI Tabs -->
+<nav class="navbar navbar-expand-lg navbar-dark bg-primary">
+  <div class="container-fluid">
+    <a class="navbar-brand" href="/home">Home Page</a>
+
+    <button class="navbar-toggler" type="button" data-bs-toggle="collapse" data-bs-target="#navbarNavDropdown" 
+            aria-controls="navbarNavDropdown" aria-expanded="false" aria-label="Toggle navigation">
+      <span class="navbar-toggler-icon"></span>
+    </button>
+
+    <div class="collapse navbar-collapse" id="navbarNavDropdown">
+      <ul class="navbar-nav ms-auto">
+        <li class="nav-item">
+          <a class="nav-link" href="/login">Login</a>
+        </li>
+        <li class="nav-item">
+          <a class="nav-link" href="/home">Home</a>
+        </li>
+        <li class="nav-item">
+          <a class="nav-link" href="/update">Update</a>
+        </li>
+        <li class="nav-item">
+          <a class="nav-link" href="/delete">Delete</a>
+        </li>
+        
+      </ul>
+
+      <!-- ✅ Dynamic JS buttons on the far right -->
+      <div class="ms-3 d-flex" id="navbar-buttons">
+        <!-- JavaScript-injected buttons appear here -->
+      </div>
+    </div>
+  </div>
+</nav>
+
+
+<h3 class="mb-4">Search Video By ID</h3>
+<div class="input-group mb-4">
+  <input type="text" id="searchId" class="form-control" placeholder="Enter Video ID">
+  <button class="btn btn-primary" id="searchBtn">Search</button>
+</div>
+
+<form id="updateForm" style="display:none;" enctype="multipart/form-data" class="card p-4 shadow-sm">
+  <input type="hidden" id="id" name="id">
+  
+  <div class="mb-3">
+    <label>Uploader</label>
+    <input type="text" id="uploader" class="form-control" required>
+  </div>
+
+  <div class="mb-3">
+    <label>Title</label>
+    <input type="text" id="title" class="form-control" required>
+  </div>
+
+  <div class="mb-3">
+    <label>Description</label>
+    <textarea id="description" class="form-control" rows="3" required></textarea>
+  </div>
+
+  <div class="mb-3">
+    <label>Tags (comma separated)</label>
+    <input type="text" id="tag" class="form-control" required>
+  </div>
+
+  <div class="mb-3">
+    <label>Categories (comma separated)</label>
+    <input type="text" id="category" class="form-control" required>
+  </div>
+
+  <div class="mb-3">
+    <label>Current Thumbnail URL</label>
+    <input type="text" id="thumbnail_url" class="form-control" readonly>
+    <img id="thumbnailPreview" src="" class="mt-2 img-thumbnail" style="max-height:150px;">
+  </div>
+
+  <div class="mb-3">
+    <label>New Thumbnail (optional)</label>
+    <input type="file" id="thumbnail" class="form-control" accept="image/*">
+  </div>
+
+  <div class="mb-3">
+    <label>Current Video URL</label>
+    <input type="text" id="video_url" class="form-control" readonly>
+    <video id="videoPreview" class="mt-2" controls style="width:100%; max-height:200px;"></video>
+  </div>
+
+  <div class="mb-3">
+    <label>New Video (optional)</label>
+    <input type="file" id="video" class="form-control" accept="video/*">
+  </div>
+
+  <button type="submit" class="btn btn-success">Update Video</button>
+</form>
+
+
+
+  <script>
+  const sessionId = localStorage.getItem("session_id");
+
+  const navbar = document.getElementById("navbar-buttons");
+
+  if (!sessionId) {
+    navbar.innerHTML = `
+      <a href="/login" class="btn btn-light me-2">Login</a>
+      <a href="/" class="btn btn-outline-light">Sign Up</a>
+    `;
+    document.getElementById("uploadForm").style.display = "none";
+    Swal.fire({
+      icon: "warning",
+      title: "Not Logged In",
+      text: "Please login to access this page.",
+      confirmButtonText: "Go to Login"
+    }).then(() => {
+      window.location.href = "/login";
+    });
+  } else {
+    fetch(`/api/session-info?session_id=${encodeURIComponent(sessionId)}`)
+      .then(res => res.json())
+      .then(data => {
+        if (data.status === "success") {
+          document.getElementById("uploader").value = data.username;
+          navbar.innerHTML = `
+            <span class="navbar-text text-white me-3">Welcome, <strong>${data.username}</strong></span>
+            <button class="btn btn-outline-light" onclick="logout()">Logout</button>
+          `;
+        } else {
+          throw new Error("Invalid session");
+        }
+      })
+      .catch(() => {
+        Swal.fire({
+          icon: "error",
+          title: "Session Expired",
+          text: "Please login again."
+        }).then(() => {
+          localStorage.removeItem("session_id");
+          window.location.href = "/login";
+        });
+      });
+  }
+
+  function logout() {
+    localStorage.removeItem("session_id");
+    Swal.fire({
+      icon: "success",
+      title: "Logged Out",
+      text: "You have been logged out.",
+      timer: 1500,
+      showConfirmButton: false
+    }).then(() => {
+      window.location.href = "/login";
+    });
+  }
+</script>
+
+
+<script>
+let session_id = localStorage.getItem("session_id");
+
+document.getElementById("searchBtn").addEventListener("click", async () => {
+  const id = document.getElementById("searchId").value.trim();
+  if (!id) return Swal.fire("Error", "Please enter video ID", "error");
+
+  Swal.fire({title: "Loading...", didOpen: () => Swal.showLoading()});
+
+  const res = await fetch(`/api/get/sundarikanya?id=${id}`);
+  const data = await res.json();
+
+  if (res.ok && data.videourl) {
+    Swal.close();
+    document.getElementById("updateForm").style.display = "block";
+
+    document.getElementById("id").value = data.id;
+    document.getElementById("uploader").value = data.uploader;
+    document.getElementById("title").value = data.title;
+    document.getElementById("description").value = data.description;
+    document.getElementById("tag").value = data.tag.join(",");
+    document.getElementById("category").value = data.category.join(",");
+
+    document.getElementById("thumbnail_url").value = data.thumbnail;
+    document.getElementById("thumbnailPreview").src = data.thumbnail;
+
+    document.getElementById("video_url").value = data.videourl[0];
+    document.getElementById("videoPreview").src = data.videourl[0];
+
+  } else {
+    Swal.fire("Not Found", "Video not found", "error");
+  }
+});
+
+document.getElementById("updateForm").addEventListener("submit", async (e) => {
+  e.preventDefault();
+
+  const formData = new FormData();
+  formData.append("session_id", session_id);
+  formData.append("id", document.getElementById("id").value);
+  formData.append("uploader", document.getElementById("uploader").value);
+  formData.append("title", document.getElementById("title").value);
+  formData.append("description", document.getElementById("description").value);
+  formData.append("tag", document.getElementById("tag").value);
+  formData.append("category", document.getElementById("category").value);
+
+  const thumbnail = document.getElementById("thumbnail").files[0];
+  if (thumbnail) formData.append("thumbnail", thumbnail);
+
+  const video = document.getElementById("video").files[0];
+  if (video) formData.append("video", video);
+
+  Swal.fire({title: "Updating...", didOpen: () => Swal.showLoading()});
+
+  const res = await fetch("/api/get/update", {
+    method: "POST",
+    body: formData
+  });
+  const result = await res.json();
+  Swal.close();
+
+  if (res.ok && result.status === "success") {
+    Swal.fire("Success", "Video updated successfully", "success");
+  } else {
+    Swal.fire("Error", result.detail || "Failed to update", "error");
+  }
+});
+</script>
+</body>
+</html>
