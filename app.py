@@ -12,6 +12,7 @@ from typing import Union
 import os
 from datetime import datetime, timedelta
 import uuid
+import aiofiles
 
 app = FastAPI()
 
@@ -39,7 +40,6 @@ class UpdateVideo(BaseModel):
 
 
 DATA_FILE = "data.json"
-
 ACCOUNTS_FILE = "accounts.json"
 
 # Create the JSON file if it doesn't exist
@@ -48,17 +48,19 @@ if not os.path.exists(ACCOUNTS_FILE):
         json.dump({"users": []}, f)
 
 class UserCreate(BaseModel):
-    username:str
-    password:str
+    username: str
+    password: str
 
-def load_accounts():
-    with open(ACCOUNTS_FILE,'r') as f:
-        return json.load(f)
+# Async load_accounts
+async def load_accounts():
+    async with aiofiles.open(ACCOUNTS_FILE, 'r') as f:
+        content = await f.read()
+        return json.loads(content)
 
-
-def save_accounts(data):
-    with open(ACCOUNTS_FILE,'w') as f:
-        json.dump(data,f,indent=2)
+# Async save_accounts
+async def save_accounts(data):
+    async with aiofiles.open(ACCOUNTS_FILE, 'w') as f:
+        await f.write(json.dumps(data, indent=2))
 
 
 
@@ -78,105 +80,81 @@ class UploadData(BaseModel):
 # -------------------
 # File helpers
 # -------------------
-def load_data():
-    if not os.path.exists(DATA_FILE):
-        return {"data": {"data": []}}
-    try:
-        with open(DATA_FILE, "r") as f:
-            return json.load(f)
-    except json.JSONDecodeError:
-        return {"data": {"data": []}}
-
-def save_data(data):
-    with open(DATA_FILE, "w") as f:
-        json.dump(data, f, indent=2)
-
-
 
 ENGAGEMENT_FILE = "engagement.json"
 
-# Initialize file if it doesn't exist
+# Async load_data
+async def load_data():
+    if not os.path.exists(DATA_FILE):
+        return {"data": {"data": []}}
+    try:
+        async with aiofiles.open(DATA_FILE, "r") as f:
+            content = await f.read()
+            return json.loads(content)
+    except json.JSONDecodeError:
+        return {"data": {"data": []}}
+
+
+# Async save_data
+async def save_data(data):
+    async with aiofiles.open(DATA_FILE, "w") as f:
+        await f.write(json.dumps(data, indent=2))
+
+
+
 if not os.path.exists(ENGAGEMENT_FILE):
     with open(ENGAGEMENT_FILE, "w") as f:
         json.dump({}, f)
 
-def load_engagement():
-    with open(ENGAGEMENT_FILE, "r") as f:
-        return json.load(f)
 
-def save_engagement(data):
-    with open(ENGAGEMENT_FILE, "w") as f:
-        json.dump(data, f, indent=2)
+async def load_engagement():
+    async with aiofiles.open(ENGAGEMENT_FILE, "r") as f:
+        content = await f.read()
+        return json.loads(content)
 
 
+async def save_engagement(data):
+    async with aiofiles.open(ENGAGEMENT_FILE, "w") as f:
+        await f.write(json.dumps(data, indent=2))
 
-def initialize_video(video_id):
-    data = load_engagement()
-    if video_id not in data:
-        data[video_id] = {"likes": 0, "views": 0, "shares": 0}
-        save_engagement(data)
+
+@app.get("/api/load")
+async def get_data():
+    data = await load_data()
     return data
-
-@app.get("/api/get/video")
-def get_video(video_id: str = Query(..., alias="id")):
-    data = initialize_video(video_id)
-    data[video_id]["views"] += 1
-    save_engagement(data)
-    return {"status": "success", "video_id": video_id, "counts": data[video_id]}
-
-@app.post("/api/like")
-def add_like(video_id: str = Query(..., alias="id")):
-    data = initialize_video(video_id)
-    data[video_id]["likes"] += 1
-    save_engagement(data)
-    return {"status": "success", "video_id": video_id, "likes": data[video_id]["likes"]}
-
-@app.post("/api/share")
-def add_share(video_id: str = Query(..., alias="id")):
-    data = initialize_video(video_id)
-    data[video_id]["shares"] += 1
-    save_engagement(data)
-    return {"status": "success", "video_id": video_id, "shares": data[video_id]["shares"]}
-
-@app.get("/api/get/stats")
-def get_stats(video_id: str = Query(..., alias="id")):
-    data = initialize_video(video_id)
-    return {"status": "success", "video_id": video_id, "counts": data[video_id]}
 
 
 # Utils
 def load_json(file): return json.load(open(file))
 def save_json(file, data): json.dump(data, open(file, "w"), indent=2)
 
-# ROUTES
 @app.get("/", response_class=HTMLResponse)
-def show_create_account(request: Request):
+async def show_create_account(request: Request):
     return templates.TemplateResponse("index.html", {"request": request})
 
 
 @app.get("/login", response_class=HTMLResponse)
-def show_login(request: Request):
+async def show_login(request: Request):
     return templates.TemplateResponse("login.html", {"request": request})
 
 
 @app.get("/home", response_class=HTMLResponse)
-def serve_home(request: Request):
+async def serve_home(request: Request):
     return templates.TemplateResponse("home.html", {"request": request})
 
 
-@app.get("/update")
+@app.get("/update", response_class=HTMLResponse)
 async def update_page(request: Request):
     return templates.TemplateResponse("test.html", {"request": request})
 
 
 
-
 @app.get("/api/get/sundarikanya")
-def get_video_by_id(
+async def get_video_by_id(
     id: Optional[str] = Query(None),
     page: int = Query(1, ge=1)
 ):
-    data = load_data()["data"]["data"]
+    data = (await load_data())["data"]["data"]
     total = len(data)
     
     # ✅ Return specific video by ID
@@ -211,14 +189,15 @@ def clean_split_list(value):
         return cleaned
     return []
 
+
 @app.get("/api/get/sundarikanya1")
-def get_sundari_entries(
-    category: Optional[str] = None,
-    tag: Optional[str] = None,
-    page: int = 1,
-    limit: int = 36
+async def get_sundari_entries(
+    category: Optional[str] = Query(None),
+    tag: Optional[str] = Query(None),
+    page: int = Query(1, ge=1),
+    limit: int = Query(36, ge=1)
 ):
-    store = load_data()  # Load your JSON DB or file
+    store = await load_data()  # ✅ Await async function
     all_entries = store.get("data", {}).get("data", [])
 
     filtered_entries = []
@@ -241,7 +220,7 @@ def get_sundari_entries(
 
     total = len(filtered_entries)
 
-    # Pagination logic
+    # ✅ Pagination
     start = (page - 1) * limit
     end = start + limit
     paginated_data = filtered_entries[start:end]
@@ -255,30 +234,33 @@ def get_sundari_entries(
         "data": paginated_data
     }
 
-
-
 @app.get("/api/get/search")
-def search_sundari_entries(
+async def search_sundari_entries(
     query: str = Query(..., description="Search by keyword in title, description, tag, or category"),
     page: int = Query(1, ge=1, description="Page number"),
     limit: int = Query(36, ge=1, le=100, description="Number of items per page"),
 ):
-    data_store = load_data()
+    data_store = await load_data()  # ✅ Use async version
     all_entries = data_store.get("data", {}).get("data", [])
 
     query_lower = query.lower()
     filtered_results = []
 
     for entry in all_entries:
-        title_match = query_lower in entry.get("title", "").lower()
-        description_match = query_lower in entry.get("description", "").lower()
-        tag_match = any(query_lower in tag.lower() for tag in entry.get("tag", []))
-        category_match = any(query_lower in cat.lower() for cat in entry.get("category", []))
+        title = entry.get("title", "").lower()
+        description = entry.get("description", "").lower()
+        tags = [t.lower() for t in entry.get("tag", [])]
+        categories = [c.lower() for c in entry.get("category", [])]
 
-        if title_match or description_match or tag_match or category_match:
+        if (
+            query_lower in title or
+            query_lower in description or
+            any(query_lower in tag for tag in tags) or
+            any(query_lower in cat for cat in categories)
+        ):
             filtered_results.append(entry)
 
-    # Pagination calculation
+    # ✅ Pagination logic
     total = len(filtered_results)
     start = (page - 1) * limit
     end = start + limit
@@ -296,8 +278,8 @@ def search_sundari_entries(
 
 
 @app.get("/api/get/bestcategory")
-def get_best_category():
-    data_store = load_data()
+async def get_best_category():
+    data_store = await load_data()  # ✅ Use async data loading
     all_entries = data_store.get("data", {}).get("data", [])
 
     category_counter = {}
@@ -309,7 +291,7 @@ def get_best_category():
             if cat_clean:
                 category_counter[cat_clean] = category_counter.get(cat_clean, 0) + 1
 
-    # Sort categories by count descending
+    # Sort by frequency descending
     sorted_categories = sorted(category_counter.items(), key=lambda x: x[1], reverse=True)
 
     best_categories = [{"category": cat, "count": count} for cat, count in sorted_categories]
