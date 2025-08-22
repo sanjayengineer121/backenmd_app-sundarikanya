@@ -1,5 +1,6 @@
 Here's a clean and professional **GitHub README.md** for your FastAPI project on Vercel, with a simple and modern style:
 
+new
 ---
 
 # 🚀 FastAPI Video App
@@ -92,3 +93,4 @@ If you found this useful, please ⭐ star the repo!
 ---
 
 Let me know if you'd like me to customize this (with your name, GitHub link, etc.).
+
