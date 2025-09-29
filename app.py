@@ -319,7 +319,7 @@ async def get_all_latest_videos():
     return {
         "status": "success",
         "total": len(sorted_videos),
-        "videos": sorted_videos
+        "data": sorted_videos
     }
 
 import random
@@ -338,5 +338,6 @@ async def get_recommended():
         "total": len(recommended),
         "data": recommended
     }
+
 
 
