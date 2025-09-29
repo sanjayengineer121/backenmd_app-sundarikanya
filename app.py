@@ -322,4 +322,21 @@ async def get_all_latest_videos():
         "videos": sorted_videos
     }
 
+import random
+
+@app.get("/api/get/recommended")
+async def get_recommended():
+    store = await load_data()
+    all_entries = store.get("data", {}).get("data", [])
+
+    # 🎲 Pick 15–20 random entries
+    sample_size = random.randint(15, 20)
+    recommended = random.sample(all_entries, min(sample_size, len(all_entries)))
+
+    return {
+        "status": "success",
+        "total": len(recommended),
+        "data": recommended
+    }
+
 
