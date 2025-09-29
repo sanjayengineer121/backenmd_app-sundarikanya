@@ -160,10 +160,9 @@ async def get_video_by_id(
     
     # ✅ Return specific video by ID
     if id:
-        formatted_id = id.zfill(3)
-        result = next((item for item in data if item["id"] == formatted_id), None)
+        result = next((item for item in data if item["id"] == id), None)  # no zfill
         if not result:
-            raise HTTPException(status_code=404, detail=f"Video with ID {formatted_id} not found.")
+            raise HTTPException(status_code=404, detail=f"Video with ID {id} not found.")
         return result
 
     # ✅ Pagination logic from end
@@ -177,11 +176,11 @@ async def get_video_by_id(
         "total": total,
         "page": page,
         "per_page": per_page,
-        "data": list(reversed(paginated_data))  # So newest is always first
+        "data": list(reversed(paginated_data))  # newest first
     }
 
 
-# Utility: Convert ["Pakistani,Teen,,Model"] → ["Pakistani", "Teen", "Model"]
+
 def clean_split_list(value):
     if isinstance(value, list):
         cleaned = []
@@ -202,7 +201,6 @@ async def get_sundari_entries(
     all_entries = store.get("data", {}).get("data", [])
 
     filtered_entries = []
-
     for entry in all_entries:
         cat_list = clean_split_list(entry.get("category", []))
         tag_list = clean_split_list(entry.get("tag", []))
@@ -234,6 +232,8 @@ async def get_sundari_entries(
         "total": total,
         "data": paginated_data
     }
+
+
 
 @app.get("/api/get/search")
 async def search_sundari_entries(
@@ -302,5 +302,6 @@ async def get_best_category():
         "total_categories": len(best_categories),
         "best_categories": best_categories
     }
+
 
 
