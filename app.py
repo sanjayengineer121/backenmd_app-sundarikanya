@@ -304,4 +304,22 @@ async def get_best_category():
     }
 
 
+@app.get("/api/get/atest")
+async def get_all_latest_videos():
+    # 1. Load database
+    data = await load_data()
+    videos = data.get("data", {}).get("data", [])
+
+    if not videos:
+        raise HTTPException(status_code=404, detail="No videos found")
+
+    # 2. Sort all videos by ID (numeric, descending → latest first)
+    sorted_videos = sorted(videos, key=lambda v: int(v.get("id", 0)), reverse=True)
+
+    return {
+        "status": "success",
+        "total": len(sorted_videos),
+        "videos": sorted_videos
+    }
+
 
