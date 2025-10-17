@@ -40,8 +40,9 @@ https://your-fastapi-app.vercel.app
 ### 1. Clone the Repository
 
 ```bash
-git clone https://github.com/your-username/your-fastapi-app.git
-cd your-fastapi-app
+git clone https://github.com/sanjayengineer121/backenmd_app-sundarikanya.git
+cd backenmd_app-sundarikanya
+python -m uvicorn main:app --port 8089 --reload
 ```
 
 ### 2. Install Vercel CLI
@@ -93,4 +94,5 @@ If you found this useful, please ⭐ star the repo!
 ---
 
 Let me know if you'd like me to customize this (with your name, GitHub link, etc.).
+
 
