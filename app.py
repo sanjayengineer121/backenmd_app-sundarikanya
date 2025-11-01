@@ -305,7 +305,7 @@ async def get_best_category():
 
 
 @app.get("/api/get/atest")
-async def get_all_latest_videos():
+async def get_all_latest_videos(page: int = Query(1, ge=1), limit: int = Query(30, ge=1)):
     # 1. Load database
     data = await load_data()
     videos = data.get("data", {}).get("data", [])
@@ -313,13 +313,20 @@ async def get_all_latest_videos():
     if not videos:
         raise HTTPException(status_code=404, detail="No videos found")
 
-    # 2. Sort all videos by ID (numeric, descending → latest first)
+    # 2. Sort videos by ID (numeric, descending → latest first)
     sorted_videos = sorted(videos, key=lambda v: int(v.get("id", 0)), reverse=True)
+
+    # 3. Pagination logic
+    start = (page - 1) * limit
+    end = start + limit
+    paginated_videos = sorted_videos[start:end]
 
     return {
         "status": "success",
+        "page": page,
+        "limit": limit,
         "total": len(sorted_videos),
-        "data": sorted_videos
+        "data": paginated_videos
     }
 
 import random
@@ -338,6 +345,7 @@ async def get_recommended():
         "total": len(recommended),
         "data": recommended
     }
+
 
 
 
