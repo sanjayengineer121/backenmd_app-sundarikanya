@@ -166,7 +166,7 @@ async def get_video_by_id(
         return result
 
     # ✅ Pagination logic from end
-    per_page = 40
+    per_page = 30
     start = max(total - (page * per_page), 0)
     end = total - ((page - 1) * per_page)
     paginated_data = data[start:end]
@@ -195,7 +195,7 @@ async def get_sundari_entries(
     category: Optional[str] = Query(None),
     tag: Optional[str] = Query(None),
     page: int = Query(1, ge=1),
-    limit: int = Query(36, ge=1)
+    limit: int = Query(30, ge=1)
 ):
     store = await load_data()  # ✅ Await async function
     all_entries = store.get("data", {}).get("data", [])
@@ -239,7 +239,7 @@ async def get_sundari_entries(
 async def search_sundari_entries(
     query: str = Query(..., description="Search by keyword in title, description, tag, or category"),
     page: int = Query(1, ge=1, description="Page number"),
-    limit: int = Query(36, ge=1, le=100, description="Number of items per page"),
+    limit: int = Query(30, ge=1, le=100, description="Number of items per page"),
 ):
     data_store = await load_data()  # ✅ Use async version
     all_entries = data_store.get("data", {}).get("data", [])
